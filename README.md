@@ -52,7 +52,6 @@ npx -y skills@latest add ningzimu/codex-gpt-image \
 
 这个仓库目前只包含 `codex-gpt-image` 一个 skill。安装完成后，重启当前 agent 让新 skill 生效。
 
-> 如果你从旧文档看到 `ningzimu/gpt-image-gen`，那是仓库早期名称；现在请优先使用 `ningzimu/codex-gpt-image`。
 
 本地开发时可以用软链接：
 

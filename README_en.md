@@ -35,7 +35,6 @@ npx -y skills@latest add ningzimu/codex-gpt-image \
 
 This repository currently contains one skill: `codex-gpt-image`. Restart the current agent after installation.
 
-> If you saw `ningzimu/gpt-image-gen` in an older snippet, that was the early repository name. Prefer the canonical `ningzimu/codex-gpt-image` name now.
 
 ## Prerequisites
 
