@@ -29,7 +29,7 @@ npx -y skills@latest add ningzimu/gpt-image-gen \
 
 Then restart Codex.
 
-### Claude Code, Hermes Agent
+### Claude Code, OpenClaw, Hermes Agent
 
 Install with the same `skills` CLI:
 
@@ -40,6 +40,12 @@ npx -y skills@latest add ningzimu/gpt-image-gen \
   --agent claude-code \
   --global
 
+# OpenClaw
+npx -y skills@latest add ningzimu/gpt-image-gen \
+  --skill codex-gpt-image \
+  --agent openclaw \
+  --global
+
 # Hermes Agent
 npx -y skills@latest add ningzimu/gpt-image-gen \
   --skill codex-gpt-image \
@@ -47,11 +53,7 @@ npx -y skills@latest add ningzimu/gpt-image-gen \
   --global
 ```
 
-Common target directories are `~/.claude/skills/codex-gpt-image` for Claude Code and `~/.hermes/skills/codex-gpt-image` for Hermes Agent.
-
-### OpenClaw
-
-This skill is not published to ClawHub yet. For OpenClaw usage, copy or symlink this repository's `skills/codex-gpt-image` directory into a skills directory that OpenClaw can read. Add ClawHub publishing later when it is needed.
+Common target directories are `~/.claude/skills/codex-gpt-image` for Claude Code and `~/.hermes/skills/codex-gpt-image` for Hermes Agent. This skill is not published to ClawHub yet; install it into OpenClaw from GitHub with the `skills` CLI for now, and add ClawHub publishing later when it is needed.
 
 ## Prerequisites
 

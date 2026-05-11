@@ -53,7 +53,7 @@ mkdir -p ~/.codex/skills
 ln -s /path/to/gpt-image-gen/skills/codex-gpt-image ~/.codex/skills/codex-gpt-image
 ```
 
-### Claude Code、Hermes Agent
+### Claude Code、OpenClaw、Hermes Agent
 
 这些 agent 都可以读取 `SKILL.md` 形式的 skill。推荐同样使用 `skills` CLI 安装：
 
@@ -64,6 +64,12 @@ npx -y skills@latest add ningzimu/gpt-image-gen \
   --agent claude-code \
   --global
 
+# OpenClaw
+npx -y skills@latest add ningzimu/gpt-image-gen \
+  --skill codex-gpt-image \
+  --agent openclaw \
+  --global
+
 # Hermes Agent
 npx -y skills@latest add ningzimu/gpt-image-gen \
   --skill codex-gpt-image \
@@ -71,11 +77,7 @@ npx -y skills@latest add ningzimu/gpt-image-gen \
   --global
 ```
 
-常见目标目录是：Claude Code 使用 `~/.claude/skills/codex-gpt-image`，Hermes Agent 使用 `~/.hermes/skills/codex-gpt-image`。
-
-### OpenClaw
-
-暂不发布到 ClawHub。需要在 OpenClaw 中使用时，先用本仓库的 `skills/codex-gpt-image` 目录手动复制或软链接到 OpenClaw 可读取的 skills 目录；后续需要发布到 ClawHub 时再补发布流程。
+常见目标目录是：Claude Code 使用 `~/.claude/skills/codex-gpt-image`，Hermes Agent 使用 `~/.hermes/skills/codex-gpt-image`。当前暂不发布到 ClawHub；OpenClaw 也先通过 `skills` CLI 从 GitHub 安装，后续需要时再补 ClawHub 发布流程。
 
 ## 前置条件
 
