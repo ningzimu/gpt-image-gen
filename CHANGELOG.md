@@ -6,8 +6,8 @@ Release notes are generated from this file. Keep changelog entries in English.
 
 ### Features
 
-- Add the initial Codex GPT Image skill and Codex OAuth image-generation CLI. (#1)
-- Add Codex device-code login fallback for machines without an existing Codex auth file. (#1)
+- Add the initial Codex GPT Image skill and Codex OAuth image-generation CLI.
+- Add Codex device-code login fallback for machines without an existing Codex auth file.
 
 ### Improvements
 
@@ -15,4 +15,4 @@ Release notes are generated from this file. Keep changelog entries in English.
 
 ### Documentation
 
-- Add Chinese and English installation and usage documentation. (#1)
+- Add Chinese and English installation and usage documentation.

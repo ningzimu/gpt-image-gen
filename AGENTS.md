@@ -19,7 +19,6 @@
   - `### Fixes`
   - `### Documentation`
 - Changelog entries must be written in English.
-- Changelog entries must include the PR reference after the PR is opened, for example `(#12)`.
 
 ## Release Process
 

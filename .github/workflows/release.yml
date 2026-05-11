@@ -90,8 +90,8 @@ jobs:
             exit 1
           fi
 
-          if ! grep -Eq '^- .+\(#[0-9]+\)' "${notes_file}"; then
-            echo "Release notes for ${version} must include at least one changelog entry with a PR reference like (#12)."
+          if ! grep -Eq '^- .+' "${notes_file}"; then
+            echo "Release notes for ${version} must include at least one changelog entry."
             exit 1
           fi
 
