@@ -16,44 +16,14 @@ A `SKILL.md` image-generation skill for Codex, Claude Code, OpenClaw, Hermes Age
 
 ## Install
 
-### Codex
-
-Install into Codex's global skills directory with the `skills` CLI:
+Install into the current agent's global skills directory with the `skills` CLI:
 
 ```bash
 npx -y skills@latest add ningzimu/gpt-image-gen \
-  --skill codex-gpt-image \
-  --agent codex \
   --global
 ```
 
-Then restart Codex.
-
-### Claude Code, OpenClaw, Hermes Agent
-
-Install with the same `skills` CLI:
-
-```bash
-# Claude Code
-npx -y skills@latest add ningzimu/gpt-image-gen \
-  --skill codex-gpt-image \
-  --agent claude-code \
-  --global
-
-# OpenClaw
-npx -y skills@latest add ningzimu/gpt-image-gen \
-  --skill codex-gpt-image \
-  --agent openclaw \
-  --global
-
-# Hermes Agent
-npx -y skills@latest add ningzimu/gpt-image-gen \
-  --skill codex-gpt-image \
-  --agent hermes-agent \
-  --global
-```
-
-Common target directories are `~/.claude/skills/codex-gpt-image` for Claude Code and `~/.hermes/skills/codex-gpt-image` for Hermes Agent. This skill is not published to ClawHub yet; install it into OpenClaw from GitHub with the `skills` CLI for now, and add ClawHub publishing later when it is needed.
+This repository currently contains one skill: `codex-gpt-image`. Restart the current agent after installation. This skill is not published to ClawHub yet; install it into OpenClaw from GitHub with the `skills` CLI for now, and add ClawHub publishing later when it is needed.
 
 ## Prerequisites
 
