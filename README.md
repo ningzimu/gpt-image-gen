@@ -35,21 +35,16 @@ gpt-image-gen/
 
 ### Codex
 
-推荐直接在 Codex 会话中说：
+推荐使用 `skills` CLI 安装到 Codex 的全局 skills 目录：
 
-```text
-请使用 skill-installer 从 https://github.com/ningzimu/gpt-image-gen 安装 codex-gpt-image，skill 路径是 skills/codex-gpt-image。
+```bash
+npx -y skills@latest add ningzimu/gpt-image-gen \
+  --skill codex-gpt-image \
+  --agent codex \
+  --global
 ```
 
 安装完成后，重启 Codex 让新 skill 生效。
-
-手动安装：
-
-```bash
-python3 ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github.py \
-  --repo ningzimu/gpt-image-gen \
-  --path skills/codex-gpt-image
-```
 
 本地开发时可以用软链接：
 
@@ -58,15 +53,29 @@ mkdir -p ~/.codex/skills
 ln -s /path/to/gpt-image-gen/skills/codex-gpt-image ~/.codex/skills/codex-gpt-image
 ```
 
-### Claude Code、OpenClaw、Hermes Agent
+### Claude Code、Hermes Agent
 
-这些 agent 都可以读取 `SKILL.md` 形式的 skill。推荐在对应 agent 会话中说：
+这些 agent 都可以读取 `SKILL.md` 形式的 skill。推荐同样使用 `skills` CLI 安装：
 
-```text
-请从 https://github.com/ningzimu/gpt-image-gen 安装 codex-gpt-image，skill 路径是 skills/codex-gpt-image，并把它放到当前 agent 的 skills 目录下。
+```bash
+# Claude Code
+npx -y skills@latest add ningzimu/gpt-image-gen \
+  --skill codex-gpt-image \
+  --agent claude-code \
+  --global
+
+# Hermes Agent
+npx -y skills@latest add ningzimu/gpt-image-gen \
+  --skill codex-gpt-image \
+  --agent hermes-agent \
+  --global
 ```
 
 常见目标目录是：Claude Code 使用 `~/.claude/skills/codex-gpt-image`，Hermes Agent 使用 `~/.hermes/skills/codex-gpt-image`。
+
+### OpenClaw
+
+暂不发布到 ClawHub。需要在 OpenClaw 中使用时，先用本仓库的 `skills/codex-gpt-image` 目录手动复制或软链接到 OpenClaw 可读取的 skills 目录；后续需要发布到 ClawHub 时再补发布流程。
 
 ## 前置条件
 

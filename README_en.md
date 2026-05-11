@@ -18,25 +18,40 @@ A `SKILL.md` image-generation skill for Codex, Claude Code, OpenClaw, Hermes Age
 
 ### Codex
 
-Ask Codex:
+Install into Codex's global skills directory with the `skills` CLI:
 
-```text
-Use skill-installer to install codex-gpt-image from https://github.com/ningzimu/gpt-image-gen. The skill path is skills/codex-gpt-image.
+```bash
+npx -y skills@latest add ningzimu/gpt-image-gen \
+  --skill codex-gpt-image \
+  --agent codex \
+  --global
 ```
 
 Then restart Codex.
 
-Manual install:
+### Claude Code, Hermes Agent
+
+Install with the same `skills` CLI:
 
 ```bash
-python3 ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github.py \
-  --repo ningzimu/gpt-image-gen \
-  --path skills/codex-gpt-image
+# Claude Code
+npx -y skills@latest add ningzimu/gpt-image-gen \
+  --skill codex-gpt-image \
+  --agent claude-code \
+  --global
+
+# Hermes Agent
+npx -y skills@latest add ningzimu/gpt-image-gen \
+  --skill codex-gpt-image \
+  --agent hermes-agent \
+  --global
 ```
 
-### Claude Code, OpenClaw, Hermes Agent
+Common target directories are `~/.claude/skills/codex-gpt-image` for Claude Code and `~/.hermes/skills/codex-gpt-image` for Hermes Agent.
 
-Install or copy `skills/codex-gpt-image` into the target agent's skills directory. Common locations include `~/.claude/skills/codex-gpt-image` and `~/.hermes/skills/codex-gpt-image`.
+### OpenClaw
+
+This skill is not published to ClawHub yet. For OpenClaw usage, copy or symlink this repository's `skills/codex-gpt-image` directory into a skills directory that OpenClaw can read. Add ClawHub publishing later when it is needed.
 
 ## Prerequisites
 
