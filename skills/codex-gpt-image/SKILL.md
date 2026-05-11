@@ -1,6 +1,6 @@
 ---
 name: codex-gpt-image
-description: Generate images with the gpt-image-2 model using Codex/ChatGPT subscription authentication instead of OPENAI_API_KEY. Use when the user wants image generation from a SKILL.md-capable agent such as Claude Code, Codex, OpenClaw, or Hermes Agent while reusing Codex auth.
+description: Generate images with the gpt-image-2 model using Codex/ChatGPT subscription authentication instead of OPENAI_API_KEY. Use when the user asks to create images, generate visual assets, or use gpt-image-2 while reusing local Codex auth instead of configuring an OpenAI API key.
 ---
 
 # Codex GPT Image
