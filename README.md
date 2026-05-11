@@ -49,8 +49,6 @@ mkdir -p ~/.codex/skills
 ln -s /path/to/gpt-image-gen/skills/codex-gpt-image ~/.codex/skills/codex-gpt-image
 ```
 
-当前暂不发布到 ClawHub；OpenClaw 也先通过 `skills` CLI 从 GitHub 安装，后续需要时再补 ClawHub 发布流程。
-
 ## 前置条件
 
 首选路径是本机已经登录 Codex，并存在可读的 Codex OAuth 文件：

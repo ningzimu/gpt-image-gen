@@ -23,7 +23,7 @@ npx -y skills@latest add ningzimu/gpt-image-gen \
   --global
 ```
 
-This repository currently contains one skill: `codex-gpt-image`. Restart the current agent after installation. This skill is not published to ClawHub yet; install it into OpenClaw from GitHub with the `skills` CLI for now, and add ClawHub publishing later when it is needed.
+This repository currently contains one skill: `codex-gpt-image`. Restart the current agent after installation.
 
 ## Prerequisites
 
