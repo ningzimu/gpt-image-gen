@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Secrets and local state
+.env
+auth.json
+*.token
+
+# Generated output
+output/
+test_output/
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif
+
+# macOS / Windows
+.DS_Store
+.AppleDouble
+Thumbs.db
+Desktop.ini

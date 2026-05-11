@@ -1,0 +1,70 @@
+name: Changelog Check
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  changelog-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate changelog entry
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+
+          git fetch --no-tags origin "+refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}"
+
+          changed_files="$(git diff --name-only "origin/${BASE_REF}...HEAD")"
+          printf 'Changed files:\n%s\n' "${changed_files}"
+
+          changelog_required=false
+          while IFS= read -r path; do
+            [ -n "${path}" ] || continue
+            case "${path}" in
+              README.md|README_en.md|skills/**|scripts/**)
+                changelog_required=true
+                ;;
+              CHANGELOG.md|.github/**|*.md|docs/**|assets/**)
+                ;;
+              *)
+                changelog_required=true
+                ;;
+            esac
+          done <<< "${changed_files}"
+
+          if [ "${changelog_required}" != "true" ]; then
+            echo "Changelog not required for this PR."
+            exit 0
+          fi
+
+          if ! printf '%s\n' "${changed_files}" | grep -qx 'CHANGELOG.md'; then
+            echo "Missing changelog update. Add a user-facing entry to CHANGELOG.md under ## Unreleased."
+            exit 1
+          fi
+
+          added_lines="$(
+            git diff --unified=0 "origin/${BASE_REF}...HEAD" -- CHANGELOG.md |
+              awk '/^\+\+\+/ { next } /^\+/ { print substr($0, 2) }'
+          )"
+
+          if [ -z "${added_lines}" ]; then
+            echo "CHANGELOG.md changed, but no added lines were found."
+            exit 1
+          fi
+
+          pr_pattern="(#${PR_NUMBER})"
+          if ! printf '%s\n' "${added_lines}" | grep -Fq "${pr_pattern}"; then
+            echo "CHANGELOG.md entry must reference this PR as ${pr_pattern}."
+            exit 1
+          fi
