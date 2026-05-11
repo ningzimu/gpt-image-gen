@@ -1,6 +1,6 @@
 # Codex GPT Image Skill
 
-[![English](https://img.shields.io/badge/lang-English-blue)](README_en.md) [![Skill](https://img.shields.io/badge/skill-codex--gpt--image-cd3b35)](skills/codex-gpt-image)
+[![English](https://img.shields.io/badge/docs-English-blue)](README_en.md) [![Skill](https://img.shields.io/badge/skill-codex--gpt--image-cd3b35)](skills/codex-gpt-image)
 
 一个可在 Codex、Claude Code、OpenClaw、Hermes Agent 等支持 `SKILL.md` 的 agent 中使用的 GPT Image 生图 skill。它不使用 `OPENAI_API_KEY`，而是读取本机 Codex OAuth 登录态，通过 Codex Responses 后端调用 `gpt-image-2` 的 `image_generation` 工具，从而复用 Codex / ChatGPT 订阅权限。
 

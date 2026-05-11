@@ -1,6 +1,6 @@
 # Codex GPT Image Skill
 
-[![中文](https://img.shields.io/badge/lang-中文-blue)](README.md) [![Skill](https://img.shields.io/badge/skill-codex--gpt--image-cd3b35)](skills/codex-gpt-image)
+[![中文](https://img.shields.io/badge/docs-中文-blue)](README.md) [![Skill](https://img.shields.io/badge/skill-codex--gpt--image-cd3b35)](skills/codex-gpt-image)
 
 A `SKILL.md` image-generation skill for Codex, Claude Code, OpenClaw, Hermes Agent, and other skill-capable agents. It does not use `OPENAI_API_KEY`. Instead, it reads the local Codex OAuth session and calls the Codex Responses backend with the `gpt-image-2` `image_generation` tool, allowing agents to reuse an existing Codex / ChatGPT subscription session.
 
