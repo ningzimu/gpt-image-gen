@@ -25,7 +25,6 @@ gpt-image-gen/
 └── skills/
     └── codex-gpt-image/
         ├── SKILL.md
-        ├── requirements.txt
         ├── references/
         │   └── request-shape.md
         └── scripts/
