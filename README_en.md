@@ -2,10 +2,20 @@
 
 [![中文](https://img.shields.io/badge/docs-中文-blue)](README.md) [![Skill](https://img.shields.io/badge/skill-codex--gpt--image-cd3b35)](skills/codex-gpt-image)
 
-A `SKILL.md` image-generation skill for Codex, Claude Code, OpenClaw, Hermes Agent, and other skill-capable agents. It does not use `OPENAI_API_KEY`. Instead, it reads the local Codex OAuth session and calls the Codex Responses backend with the `gpt-image-2` `image_generation` tool, allowing agents to reuse an existing Codex / ChatGPT subscription session.
+A `SKILL.md` image-generation skill for **OpenClaw, Claude Code, Codex, Hermes Agent**, and other skill-capable agents. It generates images with **`gpt-image-2` via Codex OAuth / ChatGPT login**, without requiring `OPENAI_API_KEY`.
+
+The skill reads the local `~/.codex/auth.json`, calls `https://chatgpt.com/backend-api/codex/responses`, and explicitly invokes the Responses `image_generation` tool so agents can reuse an existing Codex / ChatGPT subscription session.
+
+## Who this is for
+
+- You want `gpt-image-2` image generation inside OpenClaw, Claude Code, Codex, or Hermes Agent.
+- You already have Codex / ChatGPT OAuth login and do not want to configure an OpenAI API key.
+- You want one GPT Image skill that works across multiple `SKILL.md`-capable agents.
+- You need text-to-image, reference-image editing, 2K/4K outputs, or transparent-background requests.
 
 ## Features
 
+- OpenClaw skill / Claude Code skill / Codex skill / Hermes Agent skill
 - Codex OAuth auth from `~/.codex/auth.json`
 - No OpenAI API key required
 - Defaults to `gpt-image-2`
@@ -19,11 +29,13 @@ A `SKILL.md` image-generation skill for Codex, Claude Code, OpenClaw, Hermes Age
 Install into the current agent's global skills directory with the `skills` CLI:
 
 ```bash
-npx -y skills@latest add ningzimu/gpt-image-gen \
+npx -y skills@latest add ningzimu/codex-gpt-image \
   --global
 ```
 
 This repository currently contains one skill: `codex-gpt-image`. Restart the current agent after installation.
+
+> If you saw `ningzimu/gpt-image-gen` in an older snippet, that was the early repository name. Prefer the canonical `ningzimu/codex-gpt-image` name now.
 
 ## Prerequisites
 

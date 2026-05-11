@@ -2,10 +2,20 @@
 
 [![English](https://img.shields.io/badge/docs-English-blue)](README_en.md) [![Skill](https://img.shields.io/badge/skill-codex--gpt--image-cd3b35)](skills/codex-gpt-image)
 
-一个可在 Codex、Claude Code、OpenClaw、Hermes Agent 等支持 `SKILL.md` 的 agent 中使用的 GPT Image 生图 skill。它不使用 `OPENAI_API_KEY`，而是读取本机 Codex OAuth 登录态，通过 Codex Responses 后端调用 `gpt-image-2` 的 `image_generation` 工具，从而复用 Codex / ChatGPT 订阅权限。
+一个面向 **OpenClaw / Claude Code / Codex / Hermes Agent** 的 `SKILL.md` 生图 skill：通过 **Codex OAuth / ChatGPT 登录态** 调用 `gpt-image-2`，不需要 `OPENAI_API_KEY`。
+
+它读取本机 `~/.codex/auth.json`，请求 `https://chatgpt.com/backend-api/codex/responses`，并显式调用 Responses `image_generation` 工具，让 agent 复用已有 Codex / ChatGPT 订阅权限生成图片。
+
+## 适合谁用
+
+- 想在 OpenClaw / Claude Code / Codex / Hermes Agent 里直接用 `gpt-image-2` 生图
+- 已经有 Codex / ChatGPT OAuth 登录态，不想再配置 OpenAI API key
+- 想把同一套 GPT Image skill 复用到多个支持 `SKILL.md` 的 agent
+- 需要文本生图、参考图编辑、2K/4K 输出或透明背景请求
 
 ## 特点
 
+- OpenClaw skill / Claude Code skill / Codex skill / Hermes Agent skill
 - Codex OAuth：读取 `~/.codex/auth.json`，不要求 OpenAI API key
 - 默认使用 `gpt-image-2`，支持 `low`、`medium`、`high`、`auto` 质量参数
 - 支持文本生图和多参考图编辑
@@ -16,7 +26,7 @@
 ## 目录结构
 
 ```text
-gpt-image-gen/
+codex-gpt-image/
 ├── README.md
 ├── README_en.md
 ├── LICENSE
@@ -36,17 +46,19 @@ gpt-image-gen/
 推荐使用 `skills` CLI 一次安装到当前 agent 的全局 skills 目录：
 
 ```bash
-npx -y skills@latest add ningzimu/gpt-image-gen \
+npx -y skills@latest add ningzimu/codex-gpt-image \
   --global
 ```
 
 这个仓库目前只包含 `codex-gpt-image` 一个 skill。安装完成后，重启当前 agent 让新 skill 生效。
 
+> 如果你从旧文档看到 `ningzimu/gpt-image-gen`，那是仓库早期名称；现在请优先使用 `ningzimu/codex-gpt-image`。
+
 本地开发时可以用软链接：
 
 ```bash
 mkdir -p ~/.codex/skills
-ln -s /path/to/gpt-image-gen/skills/codex-gpt-image ~/.codex/skills/codex-gpt-image
+ln -s /path/to/codex-gpt-image/skills/codex-gpt-image ~/.codex/skills/codex-gpt-image
 ```
 
 ## 前置条件
