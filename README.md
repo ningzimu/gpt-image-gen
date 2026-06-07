@@ -107,7 +107,6 @@ python3 skills/codex-gpt-image/scripts/codex_gpt_image.py auth-status --login-if
 python3 skills/codex-gpt-image/scripts/codex_gpt_image.py generate \
   --prompt "A polished launch poster for a terminal AI image tool" \
   --size 1536x1024 \
-  --quality high \
   --out output/codex-gpt-image/poster.png
 ```
 

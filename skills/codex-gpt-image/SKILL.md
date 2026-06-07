@@ -38,7 +38,6 @@ Do not use this skill when the user wants the official OpenAI Images API, an Ope
    python3 /path/to/skills/codex-gpt-image/scripts/codex_gpt_image.py generate \
      --prompt "A polished product poster for a terminal AI tool" \
      --size 1536x1024 \
-     --quality high \
      --out output/codex-gpt-image/poster.png
    ```
 
@@ -63,7 +62,7 @@ Do not use this skill when the user wants the official OpenAI Images API, an Ope
 - Image model: `gpt-image-2`
 - Outer Responses model: `gpt-5.5`
 - Size: `1024x1024`
-- Quality: `high`
+- Quality: `auto`
 - Output format: `png`
 
 ## Transparent Images
