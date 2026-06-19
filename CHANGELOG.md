@@ -11,10 +11,27 @@ Release notes are generated from this file. Keep changelog entries in English.
 
 ### Improvements
 
+- Route Codex OAuth image requests through the Codex Images endpoints instead of the Responses image-generation tool.
+- Add CLI options for moderation, output compression, edit masks, and end-user identifiers.
+- Align image size, background, and moderation defaults with the official Images API.
+- Make fixed-value image options explicit in CLI choices and allow overriding the Codex OAuth client id.
+- Include the Codex image request originator and account headers when available.
+
 ### Fixes
+
+- Derive the ChatGPT account header only from explicit Codex auth account fields.
+- Allow `generate --dry-run` to validate request shape without loading Codex auth.
+- Remove unsupported transparent backgrounds from the `--background` choices for `gpt-image-2`.
 
 ### Documentation
 
 - Add Chinese and English installation and usage documentation.
+- Add an OpenAI Images API parameter reference for agent workflows.
+- Consolidate Images API parameters and Codex request-shape guidance into one reference.
 - Improve README SEO wording for OpenClaw, Claude Code, Codex OAuth, and gpt-image-2 discovery.
+- Remove legacy alternate-model guidance from the skill instructions.
+- Replace concrete skill workflow examples with principle-based parameter guidance.
 - Update install examples to use the canonical `ningzimu/codex-gpt-image` repository name.
+- Remove stale transparent-background examples from the README files.
+- Remove concrete size choices from README examples so the documented default stays `auto`.
+- Clarify that the Codex Images backend path is not the recommended OpenAI API integration and may change.

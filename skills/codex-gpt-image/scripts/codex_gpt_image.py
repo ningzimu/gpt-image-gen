@@ -2,9 +2,8 @@
 """Generate GPT Image outputs through Codex OAuth.
 
 This CLI intentionally does not use OPENAI_API_KEY. It reads the local Codex
-OAuth session, then calls the Codex Responses backend with the image_generation
-tool. The request shape follows the route used by Codex-integrated agents such
-as OpenClaw.
+OAuth session, then calls the Codex Images backend used by Codex-integrated
+agents.
 """
 
 from __future__ import annotations
@@ -27,27 +26,36 @@ import webbrowser
 
 
 DEFAULT_CODEX_AUTH_FILE = "~/.codex/auth.json"
-DEFAULT_CODEX_RESPONSES_BASE_URL = "https://chatgpt.com/backend-api/codex"
+DEFAULT_CODEX_IMAGES_BASE_URL = "https://chatgpt.com/backend-api/codex"
 OPENAI_AUTH_BASE_URL = "https://auth.openai.com"
-OPENAI_CODEX_CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann"
+# Public OAuth client id used by official Codex login; override with
+# CODEX_APP_SERVER_LOGIN_CLIENT_ID or --client-id for staging/private clients.
+DEFAULT_OPENAI_CODEX_CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann"
+CODEX_CLIENT_ID_ENV_VAR = "CODEX_APP_SERVER_LOGIN_CLIENT_ID"
 OPENAI_CODEX_DEVICE_CALLBACK_URL = f"{OPENAI_AUTH_BASE_URL}/deviceauth/callback"
 DEFAULT_IMAGE_MODEL = "gpt-image-2"
-DEFAULT_RESPONSES_MODEL = "gpt-5.5"
-DEFAULT_SIZE = "1024x1024"
+DEFAULT_SIZE = "auto"
 DEFAULT_QUALITY = "auto"
 DEFAULT_OUTPUT_FORMAT = "png"
+DEFAULT_OUTPUT_COMPRESSION = 100
+DEFAULT_BACKGROUND = "auto"
+DEFAULT_MODERATION = "auto"
 DEFAULT_TIMEOUT = 180
 DEFAULT_COUNT = 1
 DEVICE_CODE_TIMEOUT = 15 * 60
 DEVICE_CODE_DEFAULT_INTERVAL = 5
 DEVICE_CODE_MIN_INTERVAL = 1
-MAX_COUNT = 4
-MAX_INPUT_IMAGES = 5
+MAX_COUNT = 10
+MAX_INPUT_IMAGES = 16
 MAX_RESPONSE_BYTES = 64 * 1024 * 1024
 MAX_BASE64_CHARS = 64 * 1024 * 1024
+MAX_IMAGE_DATA_URL_CHARS = 20_971_520
 SUPPORTED_QUALITIES = {"low", "medium", "high", "auto"}
 SUPPORTED_OUTPUT_FORMATS = {"png", "jpeg", "jpg", "webp"}
-SUPPORTED_BACKGROUNDS = {"transparent", "opaque", "auto"}
+SUPPORTED_BACKGROUNDS = {"opaque", "auto"}
+SUPPORTED_MODERATIONS = {"low", "auto"}
+CHATGPT_AUTH_CLAIM = "https://api.openai.com/auth"
+CHATGPT_ACCOUNT_ID_CLAIM = "chatgpt_account_id"
 GPT_IMAGE_2_MIN_PIXELS = 655_360
 GPT_IMAGE_2_MAX_PIXELS = 8_294_400
 GPT_IMAGE_2_MAX_EDGE = 3840
@@ -102,12 +110,20 @@ def codex_auth_file() -> Path:
     return Path(raw).expanduser()
 
 
+def openai_codex_client_id(args: argparse.Namespace) -> str:
+    raw = (
+        getattr(args, "client_id", None)
+        or os.getenv(CODEX_CLIENT_ID_ENV_VAR)
+        or DEFAULT_OPENAI_CODEX_CLIENT_ID
+    )
+    client_id = str(raw).strip()
+    if not client_id:
+        raise CliError("Codex OAuth client id is empty.")
+    return client_id
+
+
 def auth_headers(content_type: str) -> dict[str, str]:
-    return {
-        "Content-Type": content_type,
-        "originator": "codex-gpt-image",
-        "User-Agent": "codex-gpt-image-skill/0.1.0",
-    }
+    return {"Content-Type": content_type}
 
 
 def post_json(url: str, payload: dict[str, Any], timeout: int) -> dict[str, Any]:
@@ -161,28 +177,28 @@ def decode_jwt_payload(token: str) -> dict[str, Any]:
     return data if isinstance(data, dict) else {}
 
 
-def infer_account_id(access_token: str) -> str | None:
-    payload = decode_jwt_payload(access_token)
-    for key in (
-        "https://api.openai.com/auth",
-        "https://api.openai.com/account_id",
-        "account_id",
-        "sub",
-    ):
-        value = payload.get(key)
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-        if isinstance(value, dict):
-            nested = value.get("account_id") or value.get("accountId")
-            if isinstance(nested, str) and nested.strip():
-                return nested.strip()
+def infer_account_id_from_tokens(tokens: dict[str, Any]) -> str | None:
+    account_id = tokens.get("account_id")
+    if isinstance(account_id, str) and account_id.strip():
+        return account_id.strip()
+
+    id_token = tokens.get("id_token")
+    if not isinstance(id_token, str) or not id_token.strip():
+        return None
+
+    auth_claim = decode_jwt_payload(id_token).get(CHATGPT_AUTH_CLAIM)
+    if not isinstance(auth_claim, dict):
+        return None
+    chatgpt_account_id = auth_claim.get(CHATGPT_ACCOUNT_ID_CLAIM)
+    if isinstance(chatgpt_account_id, str) and chatgpt_account_id.strip():
+        return chatgpt_account_id.strip()
     return None
 
 
-def request_device_code(timeout: int) -> DeviceCode:
+def request_device_code(timeout: int, client_id: str) -> DeviceCode:
     data = post_json(
         f"{OPENAI_AUTH_BASE_URL}/api/accounts/deviceauth/usercode",
-        {"client_id": OPENAI_CODEX_CLIENT_ID},
+        {"client_id": client_id},
         timeout,
     )
     device_auth_id = str(data.get("device_auth_id") or "").strip()
@@ -231,14 +247,14 @@ def poll_device_code(device_code: DeviceCode, timeout: int) -> DeviceAuthorizati
     raise CliError("OpenAI Codex device authorization timed out after 15 minutes.")
 
 
-def exchange_device_code(authz: DeviceAuthorization, timeout: int) -> dict[str, Any]:
+def exchange_device_code(authz: DeviceAuthorization, timeout: int, client_id: str) -> dict[str, Any]:
     data = post_form(
         f"{OPENAI_AUTH_BASE_URL}/oauth/token",
         {
             "grant_type": "authorization_code",
             "code": authz.authorization_code,
             "redirect_uri": OPENAI_CODEX_DEVICE_CALLBACK_URL,
-            "client_id": OPENAI_CODEX_CLIENT_ID,
+            "client_id": client_id,
             "code_verifier": authz.code_verifier,
         },
         timeout,
@@ -264,8 +280,8 @@ def write_codex_auth(tokens: dict[str, Any]) -> Path:
             existing = {}
     access = str(tokens["access_token"]).strip()
     refresh = str(tokens["refresh_token"]).strip()
-    account_id = infer_account_id(access)
-    existing["auth_mode"] = existing.get("auth_mode") or "chatgpt"
+    account_id = infer_account_id_from_tokens(tokens)
+    existing["auth_mode"] = "chatgpt"
     existing["last_refresh"] = datetime.now(timezone.utc).isoformat()
     existing["tokens"] = {
         "access_token": access,
@@ -284,7 +300,8 @@ def write_codex_auth(tokens: dict[str, Any]) -> Path:
 
 def login_device_code(args: argparse.Namespace) -> CodexAuth:
     eprint("Requesting Codex device code...")
-    device_code = request_device_code(args.timeout)
+    client_id = openai_codex_client_id(args)
+    device_code = request_device_code(args.timeout, client_id)
     print()
     print("Open this URL in your browser and enter the code:")
     print(f"URL:  {device_code.verification_url}")
@@ -299,7 +316,7 @@ def login_device_code(args: argparse.Namespace) -> CodexAuth:
     eprint("Waiting for browser authorization...")
     authz = poll_device_code(device_code, args.timeout)
     eprint("Exchanging device code for Codex OAuth tokens...")
-    tokens = exchange_device_code(authz, args.timeout)
+    tokens = exchange_device_code(authz, args.timeout, client_id)
     path = write_codex_auth(tokens)
     eprint(f"Codex OAuth saved to {path}.")
     return load_codex_auth()
@@ -350,16 +367,21 @@ def redact(value: str | None) -> str | None:
 
 
 def canonicalize_codex_base_url(base_url: str | None) -> str:
-    raw = (base_url or os.getenv("CODEX_RESPONSES_BASE_URL") or DEFAULT_CODEX_RESPONSES_BASE_URL).strip()
+    raw = (
+        base_url
+        or os.getenv("CODEX_IMAGES_BASE_URL")
+        or DEFAULT_CODEX_IMAGES_BASE_URL
+    ).strip()
     if not raw:
-        return DEFAULT_CODEX_RESPONSES_BASE_URL
+        return DEFAULT_CODEX_IMAGES_BASE_URL
     if re.fullmatch(r"https?://chatgpt\.com/backend-api(?:/codex)?(?:/v1)?/?", raw, re.I):
-        return DEFAULT_CODEX_RESPONSES_BASE_URL
+        return DEFAULT_CODEX_IMAGES_BASE_URL
     return raw.rstrip("/")
 
 
-def response_url(base_url: str | None) -> str:
-    return f"{canonicalize_codex_base_url(base_url)}/responses"
+def image_endpoint_url(base_url: str | None, operation: str) -> str:
+    endpoint = "images/edits" if operation == "edit" else "images/generations"
+    return f"{canonicalize_codex_base_url(base_url)}/{endpoint}"
 
 
 def read_prompt(prompt: str | None, prompt_file: str | None) -> str:
@@ -390,7 +412,27 @@ def validate_quality(value: str) -> None:
 
 def validate_background(value: str | None) -> None:
     if value is not None and value not in SUPPORTED_BACKGROUNDS:
-        raise CliError("background must be transparent, opaque, or auto.")
+        raise CliError("background must be auto or opaque.")
+
+
+def validate_moderation(value: str | None) -> None:
+    if value is not None and value not in SUPPORTED_MODERATIONS:
+        raise CliError("moderation must be low or auto.")
+
+
+def validate_output_compression(value: int | None, output_format: str) -> None:
+    if value is None:
+        return
+    if value < 0 or value > 100:
+        raise CliError("output-compression must be between 0 and 100.")
+    if output_format not in {"jpeg", "webp"}:
+        raise CliError("output-compression is only supported for jpeg or webp output.")
+
+
+def default_output_compression(output_format: str) -> int | None:
+    if output_format in {"jpeg", "webp"}:
+        return DEFAULT_OUTPUT_COMPRESSION
+    return None
 
 
 def parse_size(value: str) -> tuple[int, int] | None:
@@ -428,16 +470,17 @@ def validate_size(size: str, model: str) -> None:
         raise CliError("gpt-image-2 total pixels must be between 655,360 and 8,294,400.")
 
 
-def guess_mime(path: Path) -> str:
-    mime, _ = mimetypes.guess_type(str(path))
-    if mime and mime.startswith("image/"):
-        return mime
-    suffix = path.suffix.lower()
-    if suffix in {".jpg", ".jpeg"}:
+def guess_mime(path: Path, data: bytes) -> str:
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if data.startswith(b"\xff\xd8\xff"):
         return "image/jpeg"
-    if suffix == ".webp":
+    if data.startswith(b"RIFF") and data[8:12] == b"WEBP":
         return "image/webp"
-    return "image/png"
+    mime, _ = mimetypes.guess_type(str(path))
+    if mime in {"image/png", "image/jpeg", "image/webp"}:
+        return mime
+    raise CliError(f"Input image must be PNG, JPEG, or WebP: {path}")
 
 
 def image_to_data_url(path: Path) -> str:
@@ -445,144 +488,124 @@ def image_to_data_url(path: Path) -> str:
         raise CliError(f"Input image not found: {path}")
     data = path.read_bytes()
     encoded = base64.b64encode(data).decode("ascii")
-    return f"data:{guess_mime(path)};base64,{encoded}"
+    data_url = f"data:{guess_mime(path, data)};base64,{encoded}"
+    if len(data_url) > MAX_IMAGE_DATA_URL_CHARS:
+        raise CliError(f"Input image exceeds data URL limit: {path}")
+    return data_url
 
 
-def build_content(prompt: str, image_paths: list[str]) -> list[dict[str, Any]]:
+def image_reference(path: Path) -> dict[str, str]:
+    return {"image_url": image_to_data_url(path)}
+
+
+def build_image_body(args: argparse.Namespace, prompt: str, image_paths: list[str]) -> tuple[str, str, dict[str, Any]]:
     if len(image_paths) > MAX_INPUT_IMAGES:
         raise CliError(f"At most {MAX_INPUT_IMAGES} input images are supported.")
-    content: list[dict[str, Any]] = [{"type": "input_text", "text": prompt}]
-    for raw in image_paths:
-        path = Path(raw)
-        content.append(
-            {
-                "type": "input_image",
-                "image_url": image_to_data_url(path),
-                "detail": "auto",
-            }
-        )
-    return content
+    if args.mask and not image_paths:
+        raise CliError("--mask can only be used with at least one --image input.")
 
-
-def build_body(args: argparse.Namespace, prompt: str, image_paths: list[str]) -> dict[str, Any]:
     image_model = args.model
-    if args.background == "transparent" and image_model == DEFAULT_IMAGE_MODEL:
-        image_model = "gpt-image-1.5"
+    output_format = normalize_output_format(args.output_format)
+    output_compression = (
+        args.output_compression
+        if args.output_compression is not None
+        else default_output_compression(output_format)
+    )
+
     validate_quality(args.quality)
     validate_background(args.background)
+    validate_moderation(args.moderation)
+    validate_output_compression(output_compression, output_format)
     validate_size(args.size, image_model)
 
-    tool: dict[str, Any] = {
-        "type": "image_generation",
+    body: dict[str, Any] = {
+        "prompt": prompt,
         "model": image_model,
+        "n": args.count,
         "size": args.size,
         "quality": args.quality,
+        "output_format": output_format,
     }
-    if args.output_format:
-        tool["output_format"] = normalize_output_format(args.output_format)
     if args.background:
-        tool["background"] = args.background
+        body["background"] = args.background
+    if args.moderation:
+        body["moderation"] = args.moderation
+    if output_compression is not None:
+        body["output_compression"] = output_compression
+    if args.user:
+        body["user"] = args.user
 
-    return {
-        "model": args.responses_model,
-        "input": [{"role": "user", "content": build_content(prompt, image_paths)}],
-        "instructions": "You are an image generation assistant.",
-        "tools": [tool],
-        "tool_choice": {"type": "image_generation"},
-        "stream": True,
-        "store": False,
+    operation = "edit" if image_paths else "generate"
+    if image_paths:
+        body["images"] = [image_reference(Path(raw)) for raw in image_paths]
+        if args.mask:
+            body["mask"] = image_reference(Path(args.mask))
+
+    return operation, image_model, body
+
+
+def codex_image_headers(auth: CodexAuth) -> dict[str, str]:
+    headers = {
+        "Authorization": f"Bearer {auth.access_token}",
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "originator": "codex-gpt-image",
+        "User-Agent": "codex-gpt-image-skill/0.1.0",
     }
+    if auth.account_id:
+        headers["ChatGPT-Account-ID"] = auth.account_id
+    return headers
 
 
-def post_json_sse(url: str, token: str, body: dict[str, Any], timeout: int) -> str:
+def post_image_json(
+    url: str,
+    auth: CodexAuth,
+    body: dict[str, Any],
+    timeout: int,
+) -> dict[str, Any]:
     data = json.dumps(body, ensure_ascii=False).encode("utf-8")
     req = request.Request(
         url,
         data=data,
         method="POST",
-        headers={
-            "Authorization": f"Bearer {token}",
-            "Accept": "text/event-stream",
-            "Content-Type": "application/json",
-            "User-Agent": "codex-gpt-image-skill/0.1.0",
-        },
+        headers=codex_image_headers(auth),
     )
     try:
         with request.urlopen(req, timeout=timeout) as resp:
-            chunks: list[bytes] = []
-            total = 0
-            while True:
-                chunk = resp.read(1024 * 64)
-                if not chunk:
-                    break
-                total += len(chunk)
-                if total > MAX_RESPONSE_BYTES:
-                    raise CliError("Codex image response exceeded size limit.")
-                chunks.append(chunk)
-            return b"".join(chunks).decode("utf-8", errors="replace")
+            text = resp.read(MAX_RESPONSE_BYTES).decode("utf-8", errors="replace")
     except error.HTTPError as exc:
         detail = exc.read(4096).decode("utf-8", errors="replace")
-        raise CliError(f"Codex Responses request failed (HTTP {exc.code}): {detail}") from exc
+        raise CliError(f"Codex Images request failed (HTTP {exc.code}): {detail}") from exc
     except error.URLError as exc:
-        raise CliError(f"Codex Responses request failed: {exc.reason}") from exc
+        raise CliError(f"Codex Images request failed: {exc.reason}") from exc
+    try:
+        response = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise CliError(f"Expected JSON image response, got: {text[:500]}") from exc
+    if not isinstance(response, dict):
+        raise CliError("Expected JSON object image response.")
+    return response
 
 
-def parse_sse_events(body: str) -> list[dict[str, Any]]:
-    events: list[dict[str, Any]] = []
-    for line in body.splitlines():
-        if not line.startswith("data: "):
-            continue
-        payload = line[6:].strip()
-        if not payload or payload == "[DONE]":
-            continue
-        try:
-            event = json.loads(payload)
-        except json.JSONDecodeError:
-            continue
-        if isinstance(event, dict):
-            events.append(event)
-    return events
+def extract_image_payloads(response: dict[str, Any]) -> list[tuple[str, str | None]]:
+    error_obj = response.get("error")
+    if isinstance(error_obj, dict):
+        message = error_obj.get("message") or error_obj.get("code")
+        raise CliError(str(message or "OpenAI Codex image generation failed."))
 
-
-def extract_image_payloads(body: str) -> list[tuple[str, str | None]]:
-    events = parse_sse_events(body)
-    for event in events:
-        if event.get("type") in {"response.failed", "error"}:
-            error_obj = event.get("error")
-            if isinstance(error_obj, dict):
-                message = error_obj.get("message") or error_obj.get("code")
-            else:
-                message = event.get("message")
-            raise CliError(str(message or "OpenAI Codex image generation failed."))
-
+    data = response.get("data")
+    if not isinstance(data, list):
+        raise CliError("Image response did not include a data array.")
     payloads: list[tuple[str, str | None]] = []
-    for event in events:
-        item = event.get("item")
-        if (
-            event.get("type") == "response.output_item.done"
-            and isinstance(item, dict)
-            and item.get("type") == "image_generation_call"
-            and isinstance(item.get("result"), str)
-        ):
-            payloads.append((item["result"], item.get("revised_prompt")))
-
-    if payloads:
-        return payloads
-
-    for event in events:
-        if event.get("type") != "response.completed":
-            continue
-        response_obj = event.get("response")
-        output = response_obj.get("output") if isinstance(response_obj, dict) else None
-        if not isinstance(output, list):
-            continue
-        for item in output:
-            if (
-                isinstance(item, dict)
-                and item.get("type") == "image_generation_call"
-                and isinstance(item.get("result"), str)
-            ):
-                payloads.append((item["result"], item.get("revised_prompt")))
+    for item in data:
+        if isinstance(item, dict) and isinstance(item.get("b64_json"), str):
+            revised_prompt = item.get("revised_prompt")
+            payloads.append(
+                (
+                    item["b64_json"],
+                    revised_prompt if isinstance(revised_prompt, str) else None,
+                )
+            )
     return payloads
 
 
@@ -626,7 +649,7 @@ def cmd_auth_status(args: argparse.Namespace) -> int:
             print(f"Account: {payload['account_id']}")
         if payload["last_refresh"]:
             print(f"Last refresh: {payload['last_refresh']}")
-        print(f"Responses base URL: {payload['base_url']}")
+        print(f"Images base URL: {payload['base_url']}")
     return 0
 
 
@@ -635,33 +658,33 @@ def cmd_generate(args: argparse.Namespace) -> int:
     image_paths = args.image or []
     if args.count < 1 or args.count > MAX_COUNT:
         raise CliError(f"--count must be between 1 and {MAX_COUNT}.")
-    auth = load_or_login_codex_auth(args)
     output_format = normalize_output_format(args.output_format)
-    url = response_url(args.base_url)
-    body = build_body(args, prompt, image_paths)
+    operation, image_model, body = build_image_body(args, prompt, image_paths)
+    url = image_endpoint_url(args.base_url, operation)
 
     if args.dry_run:
         summary = {
             "url": url,
-            "auth": "Codex OAuth access token from local auth file",
-            "responses_model": body["model"],
-            "image_model": body["tools"][0]["model"],
-            "size": body["tools"][0]["size"],
-            "quality": body["tools"][0].get("quality"),
+            "auth": "Codex OAuth access token (not loaded during dry-run)",
+            "operation": operation,
+            "image_model": image_model,
+            "size": body["size"],
+            "quality": body.get("quality"),
             "output_format": output_format,
+            "background": body.get("background"),
+            "moderation": body.get("moderation"),
+            "output_compression": body.get("output_compression"),
             "input_images": len(image_paths),
+            "mask": bool(args.mask),
             "count": args.count,
         }
         print(json.dumps(summary, ensure_ascii=False, indent=2))
         return 0
 
-    all_payloads: list[tuple[str, str | None]] = []
+    auth = load_or_login_codex_auth(args)
     start = time.time()
-    for _ in range(args.count):
-        body_once = dict(body)
-        text = post_json_sse(url, auth.access_token, body_once, args.timeout)
-        all_payloads.extend(extract_image_payloads(text))
-    written = write_images(all_payloads, args.out, output_format)
+    response = post_image_json(url, auth, body, args.timeout)
+    written = write_images(extract_image_payloads(response), args.out, output_format)
     for path in written:
         print(path)
     eprint(f"Generated {len(written)} image(s) via Codex OAuth in {time.time() - start:.1f}s.")
@@ -678,12 +701,14 @@ def build_parser() -> argparse.ArgumentParser:
     auth.add_argument("--base-url", default=None)
     auth.add_argument("--login-if-missing", action="store_true")
     auth.add_argument("--open-browser", action="store_true")
+    auth.add_argument("--client-id", help="Override the Codex OAuth client id for device-code login.")
     auth.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT)
     auth.add_argument("--json", action="store_true")
     auth.set_defaults(func=cmd_auth_status)
 
     login = sub.add_parser("login", help="Run OpenAI Codex device-code login and save ~/.codex/auth.json.")
     login.add_argument("--open-browser", action="store_true")
+    login.add_argument("--client-id", help="Override the Codex OAuth client id for device-code login.")
     login.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT)
     login.set_defaults(func=lambda args: 0 if login_device_code(args) else 1)
 
@@ -691,18 +716,22 @@ def build_parser() -> argparse.ArgumentParser:
     gen.add_argument("--prompt", "-p")
     gen.add_argument("--prompt-file")
     gen.add_argument("--image", "-i", action="append", help="Reference/edit image path. Repeatable.")
+    gen.add_argument("--mask", help="Mask image path for edits. Requires at least one --image.")
     gen.add_argument("--out", "-o", default="output/codex-gpt-image/output.png")
     gen.add_argument("--model", default=os.getenv("CODEX_GPT_IMAGE_MODEL", DEFAULT_IMAGE_MODEL))
-    gen.add_argument("--responses-model", default=os.getenv("CODEX_RESPONSES_MODEL", DEFAULT_RESPONSES_MODEL))
     gen.add_argument("--size", default=DEFAULT_SIZE)
-    gen.add_argument("--quality", default=DEFAULT_QUALITY)
-    gen.add_argument("--output-format", default=DEFAULT_OUTPUT_FORMAT)
-    gen.add_argument("--background", choices=sorted(SUPPORTED_BACKGROUNDS))
-    gen.add_argument("--count", type=int, default=DEFAULT_COUNT)
+    gen.add_argument("--quality", default=DEFAULT_QUALITY, choices=sorted(SUPPORTED_QUALITIES))
+    gen.add_argument("--output-format", default=DEFAULT_OUTPUT_FORMAT, choices=sorted(SUPPORTED_OUTPUT_FORMATS))
+    gen.add_argument("--background", default=DEFAULT_BACKGROUND, choices=sorted(SUPPORTED_BACKGROUNDS))
+    gen.add_argument("--moderation", default=DEFAULT_MODERATION, choices=sorted(SUPPORTED_MODERATIONS))
+    gen.add_argument("--output-compression", type=int, help="Compression level 0-100. Only valid for jpeg/webp.")
+    gen.add_argument("--user")
+    gen.add_argument("--count", type=int, default=DEFAULT_COUNT, help="Number of images, 1-10.")
     gen.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT)
     gen.add_argument("--base-url", default=None)
     gen.add_argument("--login-if-missing", action="store_true")
     gen.add_argument("--open-browser", action="store_true")
+    gen.add_argument("--client-id", help="Override the Codex OAuth client id when --login-if-missing runs.")
     gen.add_argument("--dry-run", action="store_true")
     gen.set_defaults(func=cmd_generate)
 
