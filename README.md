@@ -4,14 +4,14 @@
 
 一个面向 **OpenClaw / Claude Code / Codex / Hermes Agent** 的 `SKILL.md` 生图 skill：通过 **Codex OAuth / ChatGPT 登录态** 调用 `gpt-image-2`，不需要 `OPENAI_API_KEY`。
 
-它读取本机 `~/.codex/auth.json`，请求 `https://chatgpt.com/backend-api/codex/responses`，并显式调用 Responses `image_generation` 工具，让 agent 复用已有 Codex / ChatGPT 订阅权限生成图片。
+它读取本机 `~/.codex/auth.json`，请求 Codex Images 后端 `https://chatgpt.com/backend-api/codex/images/generations` 或 `https://chatgpt.com/backend-api/codex/images/edits`，让 agent 复用已有 Codex / ChatGPT 订阅权限生成图片。
 
 ## 适合谁用
 
 - 想在 OpenClaw / Claude Code / Codex / Hermes Agent 里直接用 `gpt-image-2` 生图
 - 已经有 Codex / ChatGPT OAuth 登录态，不想再配置 OpenAI API key
 - 想把同一套 GPT Image skill 复用到多个支持 `SKILL.md` 的 agent
-- 需要文本生图、参考图编辑、2K/4K 输出或透明背景请求
+- 需要文本生图、参考图编辑，或在用户明确要求时指定合法输出尺寸
 
 ## 特点
 
@@ -19,8 +19,8 @@
 - Codex OAuth：读取 `~/.codex/auth.json`，不要求 OpenAI API key
 - 默认使用 `gpt-image-2`，支持 `low`、`medium`、`high`、`auto` 质量参数
 - 支持文本生图和多参考图编辑
-- 支持 2K/4K 合法尺寸，例如 `2048x1152`、`3840x2160`
-- 支持透明背景请求自动使用 `gpt-image-1.5`
+- 支持 `gpt-image-2` 合法尺寸校验
+- 支持官方 Images API 的常用参数：`background`、`moderation`、`output_format`、`output_compression`、`mask`
 - 纯 Python 标准库脚本，便于在任意 agent 环境里调用
 
 ## 目录结构
@@ -36,7 +36,7 @@ codex-gpt-image/
     └── codex-gpt-image/
         ├── SKILL.md
         ├── references/
-        │   └── request-shape.md
+        │   └── openai-images-api-parameters.md
         └── scripts/
             └── codex_gpt_image.py
 ```
@@ -75,7 +75,13 @@ test -f ~/.codex/auth.json
 export CODEX_AUTH_FILE=/path/to/auth.json
 ```
 
-如果机器上还没有 Codex 登录态，也可以直接用本 skill 的 device-code 登录流程。它参考 OpenClaw 的 `openai-codex` device-code 认证方式：先生成浏览器 URL 和短 code，用户在浏览器中确认后，脚本把 access/refresh token 写入 `~/.codex/auth.json`。
+device-code 登录 fallback 默认使用官方 Codex 登录工具同一个公开 OAuth client id；如需覆盖：
+
+```bash
+export CODEX_APP_SERVER_LOGIN_CLIENT_ID=your-client-id
+```
+
+如果机器上还没有 Codex 登录态，也可以直接用本 skill 的 device-code 登录流程。它参考官方 Codex device-code 登录流程：先生成浏览器 URL 和短 code，用户在浏览器中确认后，脚本把 access/refresh token 写入 `~/.codex/auth.json`。
 
 ```bash
 python3 skills/codex-gpt-image/scripts/codex_gpt_image.py login --open-browser
@@ -106,7 +112,6 @@ python3 skills/codex-gpt-image/scripts/codex_gpt_image.py auth-status --login-if
 ```bash
 python3 skills/codex-gpt-image/scripts/codex_gpt_image.py generate \
   --prompt "A polished launch poster for a terminal AI image tool" \
-  --size 1536x1024 \
   --out output/codex-gpt-image/poster.png
 ```
 
@@ -125,25 +130,25 @@ python3 skills/codex-gpt-image/scripts/codex_gpt_image.py generate \
 python3 skills/codex-gpt-image/scripts/codex_gpt_image.py generate \
   --image /path/to/reference.png \
   --prompt "Preserve the layout, turn it into a clean editorial illustration" \
-  --size 1536x1024 \
   --out output/codex-gpt-image/edited.png
 ```
 
-透明 PNG：
+使用 mask 局部编辑：
 
 ```bash
 python3 skills/codex-gpt-image/scripts/codex_gpt_image.py generate \
-  --model gpt-image-1.5 \
-  --output-format png \
-  --background transparent \
-  --prompt "A simple red circle sticker on transparent background" \
-  --out output/codex-gpt-image/sticker.png
+  --image /path/to/source.png \
+  --mask /path/to/mask.png \
+  --prompt "Replace the masked area with a flamingo float" \
+  --out output/codex-gpt-image/masked-edit.png
 ```
 
 ## 注意
 
-- 这不是 OpenAI API key 方案，也不会把请求发到 `api.openai.com/v1/images/*`。
-- 请求会发到 Codex Responses 后端：`https://chatgpt.com/backend-api/codex/responses`。
+- 这不是 OpenAI API key 方案，不使用 `OPENAI_API_KEY` 计费。
+- 这不是 OpenAI 官方推荐的 API 集成方式；Codex Images 后端接口可能随时变更或失效，也可能受到账号、产品权限或用量规则影响。
+- 请求会发到 Codex Images 后端：`https://chatgpt.com/backend-api/codex/images/generations` 或 `https://chatgpt.com/backend-api/codex/images/edits`。
+- `gpt-image-2` 不支持透明背景；保持默认 `background=auto`，或显式使用 `opaque`。
 - Codex OAuth token 可能过期；遇到 401/403 时先重新登录 Codex。
 - 不要把 `~/.codex/auth.json` 提交到任何仓库。
 

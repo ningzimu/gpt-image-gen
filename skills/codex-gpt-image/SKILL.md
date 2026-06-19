@@ -1,15 +1,15 @@
 ---
 name: codex-gpt-image
-description: Generate images with the gpt-image-2 model using Codex/ChatGPT subscription authentication instead of OPENAI_API_KEY. Use when the user asks to create images, generate visual assets, or use gpt-image-2 while reusing local Codex auth instead of configuring an OpenAI API key.
+description: Generate or edit images with gpt-image-2 through Codex/ChatGPT subscription authentication instead of OPENAI_API_KEY. Use for text-to-image, reference-image editing, or visual assets when the user wants local Codex auth, especially when no native image tool is available. Do not use for official OpenAI API-key billing or OpenAI-compatible gateways.
 ---
 
 # Codex GPT Image
 
-Use this skill to generate or edit images through Codex OAuth instead of the OpenAI API-key path. The bundled CLI reads the local Codex auth file and calls the Codex Responses backend with the `image_generation` tool.
+Use this skill to generate or edit images through Codex OAuth instead of the OpenAI API-key path. The bundled CLI reads the local Codex auth file and calls the Codex Images backend endpoints.
 
 ## When To Use
 
-- The user asks to use `gpt-image-2`, `gpt-image-1.5`, or GPT Image through Codex auth/subscription.
+- The user asks to use `gpt-image-2` or GPT Image through Codex auth/subscription.
 - The current agent supports `SKILL.md` but does not have a native image tool.
 - The user explicitly does not want to use `OPENAI_API_KEY`.
 - The user wants the same local image workflow across Codex, Claude Code, OpenClaw, Hermes Agent, or similar agents.
@@ -18,38 +18,25 @@ Do not use this skill when the user wants the official OpenAI Images API, an Ope
 
 ## Core Workflow
 
+All CLI commands below assume the working directory is this skill folder. Otherwise, resolve the absolute path to `scripts/codex_gpt_image.py` from this `SKILL.md`.
+
 1. Check local Codex auth:
 
    ```bash
-   python3 /path/to/skills/codex-gpt-image/scripts/codex_gpt_image.py auth-status
+   python3 scripts/codex_gpt_image.py auth-status
    ```
 
 2. If Codex auth is missing, run the device-code login flow:
 
    ```bash
-   python3 /path/to/skills/codex-gpt-image/scripts/codex_gpt_image.py login --open-browser
+   python3 scripts/codex_gpt_image.py login --open-browser
    ```
 
    The CLI prints a browser URL and a short user code. The user must complete this step; never ask them to paste tokens.
 
-3. Generate an image:
+3. Generate an image with the user's actual prompt. Choose only the CLI flags required by the request, and do not reuse prompt wording from this skill.
 
-   ```bash
-   python3 /path/to/skills/codex-gpt-image/scripts/codex_gpt_image.py generate \
-     --prompt "A polished product poster for a terminal AI tool" \
-     --size 1536x1024 \
-     --out output/codex-gpt-image/poster.png
-   ```
-
-4. Edit or use reference images by passing one or more `--image` inputs:
-
-   ```bash
-   python3 /path/to/skills/codex-gpt-image/scripts/codex_gpt_image.py generate \
-     --image /absolute/path/reference.png \
-     --prompt "Preserve the composition, convert it into a clean editorial illustration" \
-     --size 1536x1024 \
-     --out output/codex-gpt-image/edited.png
-   ```
+4. Edit or use reference images by passing one or more `--image` inputs. For edits, build the prompt from the user's requested changes and the invariants that must stay unchanged.
 
 5. Report the saved path(s), model, size, and whether Codex OAuth was used.
 
@@ -58,27 +45,21 @@ Do not use this skill when the user wants the official OpenAI Images API, an Ope
 - Auth file: `~/.codex/auth.json`
 - Override auth file: `CODEX_AUTH_FILE=/path/to/auth.json`
 - Login fallback: `login` uses OpenAI Codex device-code auth and writes the same auth file
-- Responses base URL: `https://chatgpt.com/backend-api/codex`
+- Login client id: `--client-id`, `CODEX_APP_SERVER_LOGIN_CLIENT_ID`, then the public Codex default
+- Images base URL: `https://chatgpt.com/backend-api/codex`
 - Image model: `gpt-image-2`
-- Outer Responses model: `gpt-5.5`
-- Size: `1024x1024`
+- Size: `auto`
 - Quality: `auto`
+- Background: `auto`
+- Moderation: `auto`
 - Output format: `png`
+- Output compression: `100` for `jpeg` and `webp`
 
-## Transparent Images
+For detailed parameter values, defaults, model-specific constraints, and CLI mapping, read `references/openai-images-api-parameters.md`.
 
-`gpt-image-2` currently rejects `background=transparent`. If the user asks for true transparent output, call:
+## Parameter Selection
 
-```bash
-python3 /path/to/skills/codex-gpt-image/scripts/codex_gpt_image.py generate \
-  --model gpt-image-1.5 \
-  --output-format png \
-  --background transparent \
-  --prompt "A simple red circle sticker on transparent background" \
-  --out output/codex-gpt-image/sticker.png
-```
-
-If the user did not explicitly ask for model-native transparency, a normal `gpt-image-2` image is usually preferred.
+Prefer the official API defaults unless the user request requires a specific option. Read the reference before choosing explicit `model`, `size`, `quality`, `background`, `moderation`, or `output_format` values.
 
 ## Prompting
 
@@ -99,11 +80,11 @@ Keep prompts explicit and production-oriented:
 
 ## Implementation Notes
 
-The CLI sends a Responses request with:
+The CLI sends Codex Images requests with:
 
-- outer model: `gpt-5.5`
-- tool: `{ "type": "image_generation", "model": "gpt-image-2" }`
-- stream: `true`
-- store: `false`
+- generation endpoint: `POST https://chatgpt.com/backend-api/codex/images/generations`
+- edit endpoint: `POST https://chatgpt.com/backend-api/codex/images/edits`
+- auth: `Authorization: Bearer <access token from ~/.codex/auth.json>`
+- model: `gpt-image-2`
 
-It parses streamed SSE events and writes returned base64 image payloads to local files.
+It parses the JSON Images response and writes returned base64 image payloads to local files.
