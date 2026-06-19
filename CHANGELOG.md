@@ -11,7 +11,7 @@ Release notes are generated from this file. Keep changelog entries in English.
 
 ### Improvements
 
-- Increase the default Codex Images request timeout to 600 seconds.
+- Increase the default Codex Images request timeout to 600 seconds. (#3)
 - Route Codex OAuth image requests through the Codex Images endpoints instead of the Responses image-generation tool. (#2)
 - Add CLI options for moderation, output compression, edit masks, and end-user identifiers. (#2)
 - Align image size, background, and moderation defaults with the official Images API. (#2)
